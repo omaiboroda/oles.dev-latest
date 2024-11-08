@@ -12,7 +12,7 @@ export const GET = async () => {
 		items: posts.map((post) => ({
 			title: post.data.title,
 			description: post.data.description,
-			pubDate: post.data.publishDate,
+			publishDate: post.data.publishDate,
 			link: `posts/${post.slug}`,
 		})),
 	});

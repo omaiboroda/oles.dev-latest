@@ -28,10 +28,10 @@ const ogOptions: SatoriOptions = {
 	width: 1200,
 };
 
-const markup = (title: string, pubDate: string) =>
+const markup = (title: string, publishDate: string) =>
 	html`<div tw="flex flex-col w-full h-full bg-[#1d1f21] text-[#c9cacc]">
 		<div tw="flex flex-col flex-1 w-full p-10 justify-center">
-			<p tw="text-2xl mb-6">${pubDate}</p>
+			<p tw="text-2xl mb-6">${publishDate}</p>
 			<h1 tw="text-6xl font-bold leading-snug text-white">${title}</h1>
 		</div>
 		<div tw="flex items-center justify-between w-full p-10 border-t border-[#2bbc89] text-xl">
@@ -60,9 +60,9 @@ const markup = (title: string, pubDate: string) =>
 type Props = InferGetStaticPropsType<typeof getStaticPaths>;
 
 export async function GET(context: APIContext) {
-	const { pubDate, title } = context.props as Props;
+	const { publishDate, title } = context.props as Props;
 
-	const postDate = getFormattedDate(pubDate, {
+	const postDate = getFormattedDate(publishDate, {
 		month: "long",
 		weekday: "long",
 	});
@@ -83,7 +83,7 @@ export async function getStaticPaths() {
 		.map((post) => ({
 			params: { slug: post.slug },
 			props: {
-				pubDate: post.data.updatedDate ?? post.data.publishDate,
+				publishDate: post.data.updatedDate ?? post.data.publishDate,
 				title: post.data.title,
 			},
 		}));
