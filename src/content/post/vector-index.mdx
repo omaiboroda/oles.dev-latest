@@ -1,6 +1,6 @@
 ---
-title: 'Creating Indexes with pg_vector: validating locally'
-description: 'How to create HNSW index with pg_vector and validate them locally'
+title: 'Creating vector index in Postgres: for local testing'
+description: 'How to create HNSW index with pg_vector and validate it locally'
 publishDate: '2024-12-17'
 ---
 import { Image } from 'astro:assets';
@@ -8,16 +8,16 @@ import vectorIndexSeqScan from './vector-index-seq-scan.png';
 import vectorIndexSeqScanWithIndex from './vector-index-index-scan.png';
 
 
-When working with pg_vector, very soon it's nessesery to create index.
+When working with vectors and embeddings, especially performing similarity search, hitting perfomance limitation is a matter of time.
+In this article we will create an vector index in Postgres with pg_vector extension and validate it perfoms as expected.
 
-IVFFlat vs HNSW
+## IVFFlat vs HNSW
 
+pg_vector supports two types of indexes:
 1. IVFFlat (Inverted File Flat) - Suitable for larger datasets but may compromise on precision.
 2. HNSW (Hierarchical Navigable Small World) - Provides better accuracy and efficiency but may require more memory.
 
-Example of Index Creation
-
-Let’s walk through the process of setting up and utilizing HNSW index.
+We will use HNSW index in this article, but you can experiment with IVFFlat as well.
 
 ## Step 1: Setting Up Sample Data
 
@@ -27,17 +27,17 @@ Start Postgres with pg_vector in docker container:
 docker run -d --name postgres -e POSTGRES_PASSWORD=mypassword -p 5432:5432 pgvector/pgvector:pg17
 ```
 
-First, create a table:
+Then, create a table:
 
 ```sql
-CREATE TABLE postgres (
+CREATE TABLE desserts (
     id SERIAL PRIMARY KEY,
     name TEXT,
     vector VECTOR(5)
 );
 ```
 
-And insert some sample data - ie 1000 rows
+And lets insert some sample data - ie 1000 rows
 
 ```SQL
 DO $$
@@ -67,60 +67,59 @@ END $$;
 
 ## Step 2: Sequential Scan Without Index
 
+After the data is seeded, lets run a sample query without index:
+
 ```sql
 EXPLAIN ANALYZE
 SELECT id, name, vector <=> '[0.3, 0.5, 0.7, 0.9, 1.1]' AS cosine_distance
-FROM postres
+FROM desserts
 ORDER BY vector <=> '[0.3, 0.5, 0.7, 0.9, 1.1]'
 LIMIT 3;
 ```
 
-
-```sql
-EXPLAIN ANALYZE SELECT * FROM items ORDER BY description_vector <-> '[0.2, 0.3, 0.4]' LIMIT 1;
-```
-
-As you can see, this approach requires scanning all rows in the table which can be inefficient as the dataset grows.:
+As we can see, without index, the query requires scanning all rows in the table which can be inefficient:
 
 <Image src={vectorIndexSeqScan} alt="Vector index seq scan" />
 <figcaption>Sequential scan execution plan showing full table scan</figcaption>
 
 
-Step 3: Creating an Index
+## Step 3: Creating an HNSW Index
 
-Now let’s add an index to improve query performance:
+Now lets add an index to improve query performance.
 
-HNSW Index Creation:
+Depending on the nature of the dataset and your use-case, add an index for each distance function you want to use.
+Here's an example of creating an index for cosine distance:
 
 ```sql
-CREATE INDEX ON postgres USING hnsw (vector vector_cosine_ops);
+CREATE INDEX ON desserts USING hnsw (vector vector_cosine_ops);
 ```
 
-Step 4: Query Performance With Index
+## Step 4: Query Performance With Index
 
 After creating the index, vacuum analyze the table to update the statistics:
 
 ```sql
-VACUUM ANALYZE postres;
+VACUUM ANALYZE desserts;
 ```
 
-Now run the same query again:
+Now, lets run the same query again:
 
 ```sql
 EXPLAIN ANALYZE
 SELECT id, name, vector <=> '[0.3, 0.5, 0.7, 0.9, 1.1]' AS cosine_distance
-FROM postres
+FROM desserts
 ORDER BY vector <=> '[0.3, 0.5, 0.7, 0.9, 1.1]'
 LIMIT 3;
 ```
 
-As per docs, in order to use index, we need to (combine ORDER_BY and LIMIT)[https://github.com/pgvector/pgvector?tab=readme-ov-file#querying]:
+As per docs, in order to use index, we need to [combine ORDER_BY and LIMIT](https://github.com/pgvector/pgvector?tab=readme-ov-file#querying):
 
 We can see that the index is used:
 
 <Image src={vectorIndexSeqScanWithIndex} alt="Vector index scan with index" />
+<figcaption>Execution plan showing index scan</figcaption>
 
-Conclusion
+## Conclusion
 
 Indexes play a crucial role in enhancing query performance for large datasets in pg_vector-powered databases. By understanding how to create and use different types of indexes such as IVFFlat and HNSW, you can optimize your queries efficiently.
 
